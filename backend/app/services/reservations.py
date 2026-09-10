@@ -51,35 +51,44 @@ async def calculate_total_revenue(property_id: str, tenant_id: str) -> Dict[str,
                 query = text("""
                     SELECT 
                         property_id,
+                        currency,
                         SUM(total_amount) as total_revenue,
                         COUNT(*) as reservation_count
                     FROM reservations 
                     WHERE property_id = :property_id AND tenant_id = :tenant_id
-                    GROUP BY property_id
+                    GROUP BY property_id, currency
                 """)
                 
                 result = await session.execute(query, {
                     "property_id": property_id, 
                     "tenant_id": tenant_id
                 })
-                row = result.fetchone()
+                rows = result.fetchall()
                 
-                if row:
-                    total_revenue = Decimal(str(row.total_revenue))
+                if rows:
+                    # Group totals by currency and round to 2 decimal places
+                    revenues_by_currency = []
+                    total_count = 0
+                    for row in rows:
+                        rounded_total = Decimal(str(row.total_revenue)).quantize(Decimal("0.01"))
+                        revenues_by_currency.append({
+                            "currency": row.currency,
+                            "total": str(rounded_total)
+                        })
+                        total_count += row.reservation_count
+
                     return {
                         "property_id": property_id,
                         "tenant_id": tenant_id,
-                        "total": str(total_revenue),
-                        "currency": "USD", 
-                        "count": row.reservation_count
+                        "revenues": revenues_by_currency,
+                        "count": total_count
                     }
                 else:
                     # No reservations found for this property
                     return {
                         "property_id": property_id,
                         "tenant_id": tenant_id,
-                        "total": "0.00",
-                        "currency": "USD",
+                        "revenues": [],
                         "count": 0
                     }
         else:
@@ -103,7 +112,6 @@ async def calculate_total_revenue(property_id: str, tenant_id: str) -> Dict[str,
         return {
             "property_id": property_id,
             "tenant_id": tenant_id, 
-            "total": mock_property_data['total'],
-            "currency": "USD",
+            "revenues": [{"currency": "USD", "total": mock_property_data['total']}],
             "count": mock_property_data['count']
         }
