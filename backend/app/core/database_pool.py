@@ -14,8 +14,8 @@ class DatabasePool:
     async def initialize(self):
         """Initialize database connection pool"""
         try:
-            # Create async engine with connection pooling
-            database_url = f"postgresql+asyncpg://{settings.supabase_db_user}:{settings.supabase_db_password}@{settings.supabase_db_host}:{settings.supabase_db_port}/{settings.supabase_db_name}"
+            # Use DATABASE_URL from settings (provided by docker-compose), convert to asyncpg driver
+            database_url = settings.database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
             
             self.engine = create_async_engine(
                 database_url,
